@@ -1,0 +1,7 @@
+# dsh-project-context — bundle activation row (profile layer).
+# Loaded as a profile bundle; the row id stays stable so re-adds / profile
+# patches can target it. Do NOT also hand-write an identical insert row into
+# ~/.dsh/profiles/web/cordis.patch.yml — that duplicates the loader entry.
+- insert:
+    - id: project-context
+      name: 'dsh-project-context'
