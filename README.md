@@ -148,3 +148,15 @@ dsh plugin --profile web add https://github.com/buhuikongpan/dsh-project-context
 ## License
 
 MIT
+
+# Tests
+
+Run syntax checks and unit tests:
+
+```sh
+npm run check
+npm test
+```
+
+Coverage: session-mode folding (`projectModeOf`), dual-state rendering
+(project convention vs downgrade notice), cwd-gating.
