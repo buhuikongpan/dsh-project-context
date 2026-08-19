@@ -1,6 +1,6 @@
 {
   "name": "dsh-project-context",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "把 DSH 工作区文件夹变成项目：新会话自动注入精简的『项目工作区约定』上下文（先读代码 / 空则新建项目、文件放本目录 / 精简读码方法论），输入框旁提供每会话独立开关。",
   "type": "module",
   "main": "lib/index.js",

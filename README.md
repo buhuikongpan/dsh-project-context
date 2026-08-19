@@ -29,15 +29,17 @@
 - **客户端 UI**:`conversation.input.right`(输入框右侧、发送键旁)的「项目」开关,
   list/session 级、低替换风险、只读当前会话;开关状态即时生效、跟随界面语言(中/英)。
 
-注入的上下文(内容可改 `lib/index.js` 里的 `projectContextText()`,已刻意精简以控制污染):
+注入的上下文(内容可改 `lib/index.js` 里的 `projectContextText()`,已刻意精简以控制污染、可读性对齐 `<project_context>` 结构):
 
 ```
-【项目工作区约定】本会话工作目录“<cwd>”是一个项目工作区：本项目所有文件都应放在此目录下。
-开工前先读代码建立心智模型，不要一上来全量通读：
-1) 先探测再读内容：用 ls/find 看结构与规模、wc -l 量行数；先读 README/入口/数据格式；按需用 grep 沿调用链精准定位，不整包通读大项目。
-2) 文档会撒谎，代码不会：读到的事实与其矛盾时，以实际代码为准并回头核实。
-3) 若目录为空 → 这是待新建项目：直接在此目录创建，本项目所有文件放这里。
-动手前先向用户汇报你的理解与改动计划，确认后再改。不要把本约定当作最终事实，随时以实际文件为准。
+<project_context>
+Working directory "<cwd>" is now a project: all files belong here.
+Build a mental model first, don't read everything: inspect structure/size, then entry/README, follow the call chain.
+Code is ground truth; docs are reference.
+Empty directory → new project, files live here.
+Report understanding and plan before changing.
+Not final fact — defer to actual files.
+</project_context>
 ```
 
 ## 目录结构
@@ -87,7 +89,7 @@ dsh plugin --profile web add https://github.com/buhuikongpan/dsh-project-context
 ## 验证
 
 1. 在一个工作区文件夹(比如本目录)打开一个新会话。
-2. 看模型系统提示/动态上下文里出现「【项目工作区约定】…」即注入成功。
+2. 看模型系统提示/动态上下文里出现 `<project_context>` 即注入成功。
 3. 输入框右侧会出现「○ 项目」按钮;点击后在「● 项目 / ○ 项目」间切换,对应本会话注入的开/关。
 
 ## 备注 / 已知事项
