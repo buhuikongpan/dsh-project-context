@@ -9,6 +9,10 @@
     "./client": "./lib/client.js",
     "./package.json": "./package.json"
   },
+  "scripts": {
+    "check": "node --check lib/index.js && node --check lib/client.js && node -e \"new Function(require('fs').readFileSync('lib/client.js','utf8'))\"",
+    "test": "node --test"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
