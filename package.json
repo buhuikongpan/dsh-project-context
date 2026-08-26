@@ -1,7 +1,7 @@
 {
   "name": "dsh-project-context",
-  "version": "0.2.0",
-  "description": "把 DSH 工作区文件夹变成项目：新会话自动注入精简的『项目工作区约定』上下文（先读代码 / 空则新建项目、文件放本目录 / 精简读码方法论），关闭时注入降级为普通工作区的状态提示（沙箱权限同款），输入框旁提供每会话独立开关（状态存 session log 事件）。",
+  "version": "0.3.0",
+  "description": "把 DSH 工作区文件夹变成项目：新会话自动注入精简的『项目工作区约定』上下文（先读代码 / 空则新建项目、文件放本目录 / 精简读码方法论），关闭时注入降级为普通工作区的状态提示（技能目录同款的独立消息块，不拼接系统提示词），输入框旁提供每会话独立开关（状态存 session log 事件）。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -12,6 +12,12 @@
   "scripts": {
     "check": "node --check lib/index.js && node --check lib/client.js && node -e \"new Function(require('fs').readFileSync('lib/client.js','utf8'))\"",
     "test": "node --test"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-llm": "^0.1.1-rc.2"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-llm": "^0.1.1-rc.2"
   },
   "dsh": {
     "bundle": {
