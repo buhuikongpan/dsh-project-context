@@ -32,10 +32,12 @@
   不会出现"第一轮已注入一大段、关了却悄悄搬走"的割裂。
 - **判定「项目工作区」**:会话有真实 cwd(DSH 本身就是按会话 cwd 归组工作区)即视为被跟踪的项目;
   无 cwd 的系统/后台会话不注入。
-- **每会话独立开关**:**默认开启**。开关状态以 session log 事件 `project-context/mode` 存储
-  (fold 最近一条事件恢复,与沙箱权限的 `sandbox/mode` 同款:随会话 replay/导出/checkpoint
-  自动携带,无外部状态文件)。旧版 `~/.dsh/storages/project-context.json` 中的关闭状态
-  会在启动时一次性迁移进各会话事件日志(幂等,原文件改名 `.migrated` 备份)。
+- **每会话独立开关**:**默认开启**。开关状态以 `~/.dsh/storages/project-context.json`
+  状态文件存储(`{modes:{<sessionId>: true|false}}`,原子写;生效值:文件 → 旧版会话事件
+  回退 → 默认开启)。不再写会话日志事件——harness 已知事件类型白名单不含仓库外插件
+  自定义事件,写日志会在重启后拒读会话(v0.3.x 的教训)。旧版
+  `~/.dsh/storages/project-context.json` 中的关闭状态会在启动时一次性迁移进新结构
+  (幂等,原文件改名 `.migrated` 备份)。
 - **客户端 UI**:`conversation.input.right`(输入框右侧、发送键旁)的「项目」开关,
   list/session 级、低替换风险、只读当前会话;开关状态即时生效、跟随界面语言(中/英)。
 
@@ -116,15 +118,18 @@ dsh plugin --profile web add https://github.com/buhuikongpan/dsh-project-context
 
 ## 备注 / 已知事项
 
-- 开关状态以 **session log 事件** 记忆(`project-context/mode`,无事件 = 默认开启);
-  只记录被显式关闭的会话。重放会话日志即恢复状态,无需额外文件。
-- 旧版本(0.1.x)的 `~/.dsh/storages/project-context.json` 会在插件启动后(sessions 服务就绪时)**一次性迁移**:
-  对其中被关闭、仍存在且带真实 cwd 的会话追加 `project-context/mode: {enabled:false}` 事件,
-  然后将原文件改名 `project-context.json.migrated` 留存备份(确认无误后可手删)。
-  无 cwd 的会话本就不注入项目上下文,旧的 disabled 记录无意义,不会迁移。
+- 开关状态以 **状态文件** 记忆(`~/.dsh/storages/project-context.json`,`{modes:{<sessionId>: true|false}}`,
+  缺省 = 默认开启);只记录被显式关闭的会话。生效值优先级:文件 → 旧版会话事件
+  (v0.3.x 遗留,仅作读取回退) → 默认开启。原子写(tmp+rename),崩溃安全。
+  > 为什么不用会话事件了:v0.3.x 曾把开关写进 session log 事件 `project-context/mode`,
+  > 但 harness 的已知事件类型白名单不含仓库外插件自定义事件,重启后恢复该类会话会被
+  > 拒读(`SessionFormatUnsupportedError`)。v0.4.0 起不再写任何自定义会话事件。
+- 更早版本(0.1.x)的 plain-object 格式 `project-context.json`(`{disabled:{...}}`)会在启动时
+  **一次性迁移**进新结构(modes):被关闭的会话写入 `enabled:false`,原文件改名
+  `project-context.json.migrated` 留存备份(确认无误后可手删)。幂等,可重复运行。
 - 只交付源码,不改动你的 profile。若 profile 里还留着已报废的旧引用,建议顺手从 `dependencies` 和 `dsh.profile.bundles` 里移除。
 - 想改注入内容/降级文本/是否默认开启:编辑 `lib/index.js` 的 `projectContextText()` /
-  `projectDisabledText()` 即可(host 与 client 共享同一会话事件状态)。
+  `projectDisabledText()` 即可(host 与 client 共享同一状态源)。
 
 ---
 
