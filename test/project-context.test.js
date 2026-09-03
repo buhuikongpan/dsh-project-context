@@ -8,7 +8,7 @@ import path from 'node:path'
 import os from 'node:os'
 import {
   projectModeOf, resolveMode, renderProjectText, projectContextMessage, projectHistoryVisibleText,
-  readModesFile, writeModesFile, loadModes,
+  readModesFile, writeModesFile, loadModes, sessionEvents,
 } from '../lib/index.js'
 
 const CWD = 'C:/work/x'
@@ -191,4 +191,53 @@ test('projectHistoryVisibleText: folded (not on surface) messages are not visibl
     ],
   }
   assert.equal(projectHistoryVisibleText(s), undefined)
+})
+
+// --- 新版 harness 回归：真实 Session 已经没有 `events` 成员 ------------------
+// 它只暴露 snapshotEvents() / eventAt(seq) / surface.nodes。修复前 session.events
+// 恒为 undefined → projectHistoryVisibleText 永远找不到已注入消息 → 每个 agent 步骤
+// （含每次工具调用后的步骤）都会重新注入。下面用模拟真实 Session 形状的对象复现该场景。
+
+function realSessionShape(events, nodes) {
+  const arr = [...events]
+  return {
+    header: { cwd: CWD },
+    surface: { nodes },
+    // 真实 Session 上没有 events 字段，只有 snapshotEvents()
+    snapshotEvents: () => arr,
+  }
+}
+
+test('sessionEvents: prefers snapshotEvents when no `events` member (real Session shape)', () => {
+  const s = realSessionShape(['a'], [0])
+  assert.deepEqual(sessionEvents(s), ['a'])
+})
+
+test('sessionEvents: still reads the legacy `events` array when present', () => {
+  const s = { events: ['a', 'b'] }
+  assert.deepEqual(sessionEvents(s), ['a', 'b'])
+})
+
+test('sessionEvents: undefined for a bare session', () => {
+  assert.equal(sessionEvents({}), undefined)
+  assert.equal(sessionEvents(undefined), undefined)
+})
+
+test('projectHistoryVisibleText: dedups against a real-Session shape (no `events` field)', () => {
+  const enabled = renderProjectText(session([]))
+  const s = realSessionShape([
+    { seq: 0, type: 'user/message', data: { id: 'm0', role: 'user', content: [{ type: 'text', text: 'hi' }], source: { kind: 'user' } } },
+    { seq: 1, type: 'user/message', data: pcMessage('pc-1', enabled) },
+    { seq: 2, type: 'user/message', data: { id: 'm2', role: 'assistant', content: [{ type: 'text', text: 'ok' }], source: { kind: 'assistant' } } },
+  ], [0, 1, 2])
+  // 已存在同内容可见消息 → 返回其文本，pre-step 据此幂等不重发
+  assert.equal(projectHistoryVisibleText(s), enabled)
+})
+
+test('renderProjectText: mode fold works against a real-Session shape (snapshotEvents)', () => {
+  const s = realSessionShape([
+    { seq: 0, type: 'project-context/mode', data: { enabled: false } },
+  ], [])
+  // resolveMode 优先读文件；此处文件未加载该会话 → 回退到 session 事件 fold
+  assert.match(renderProjectText(s), /disabled for this session/)
 })
