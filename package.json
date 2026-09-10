@@ -1,7 +1,7 @@
 {
   "name": "dsh-project-context",
-  "version": "0.5.1",
-  "description": "给 DSH 工作区一个用途维度：侧边栏底部的「临时会话」按钮把新会话开进固定的临时工作区（$DSH_HOME/workspace/default，首次运行自动创建），项目工作区自动注入精简的项目约定、临时会话则注入『非项目、项目约定不适用』的状态块并带会话头徽标（技能目录同款的独立消息块，不拼接系统提示词，无会话级开关）。",
+  "version": "0.6.0",
+  "description": "给 DSH 一个「临时会话」：侧边栏底部的按钮让宿主在 $DSH_HOME/workspace/default 下建一个专属子目录，并以它为 cwd 创建会话——每个临时会话有自己的目录，产出文件各写各的，互不干扰；判定是纯路径前缀匹配（不查注册表、无状态文件），项目会话照旧注入精简的项目约定，临时会话不注入任何提示词，插件也不改你的权限配置。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -26,7 +26,7 @@
     "client": {
       "platform": "web",
       "inject": [
-        "@deepseek-ai/dsh-api-workspace-controller",
+        "@deepseek-ai/dsh-api-session-controller",
         "@deepseek-ai/dsh-client-ui-conversation",
         "@deepseek-ai/dsh-client-ui-workspace"
       ]

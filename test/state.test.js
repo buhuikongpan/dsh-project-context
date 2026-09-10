@@ -1,6 +1,5 @@
-// 状态层单测：状态文件读写的损坏容错 + 路径规范化 + 会话 id 归一化。
-// 用临时 DSH_HOME 隔离，绝不触碰真实 ~/.dsh（node --test 每个文件独立进程）。
-import { test, after } from 'node:test'
+// 路径层单测：根目录、会话目录、前缀判定、规范化。纯函数 + 隔离的 DSH_HOME。
+import { test, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -11,16 +10,15 @@ const prevHome = process.env.DSH_HOME
 process.env.DSH_HOME = tmpHome
 
 const {
-  conversationDir,
-  conversationWorkspaceId,
-  defaultState,
-  loadState,
+  conversationDirFor,
+  conversationRoot,
+  dshHome,
+  ensureConversationDir,
+  ensureConversationRoot,
+  isConversationCwd,
   normSessionId,
   normalizePathForCompare,
-  readState,
-  rememberConversationWorkspaceId,
-  stateFile,
-  writeState,
+  sessionDirName,
 } = await import('../lib/state.js')
 
 after(() => {
@@ -28,113 +26,98 @@ after(() => {
   fs.rmSync(tmpHome, { recursive: true, force: true })
 })
 
-function resetFile() {
-  try {
-    fs.rmSync(stateFile(), { force: true })
-  } catch {
-    /* 不存在即目标状态 */
-  }
-}
-
-test('conversationDir: 落在 $DSH_HOME/workspace/default', () => {
-  assert.equal(conversationDir(), path.join(tmpHome, 'workspace', 'default'))
+beforeEach(() => {
+  fs.rmSync(conversationRoot(), { recursive: true, force: true })
 })
 
-test('readState: 文件缺失 → 缺省态，不抛', () => {
-  resetFile()
-  assert.deepEqual(readState(), defaultState())
+test('dshHome / conversationRoot: 路径形状', () => {
+  assert.equal(dshHome(), tmpHome)
+  assert.equal(conversationRoot(), path.join(tmpHome, 'workspace', 'default'))
 })
 
-test('readState: JSON 损坏 → 缺省态，不抛', () => {
-  fs.mkdirSync(path.dirname(stateFile()), { recursive: true })
-  fs.writeFileSync(stateFile(), '{ this is not json', 'utf8')
-  assert.deepEqual(readState(), defaultState())
-})
-
-test('readState: 结构不符（数组 / 非对象）→ 缺省态', () => {
-  fs.writeFileSync(stateFile(), '[1,2,3]', 'utf8')
-  assert.deepEqual(readState(), defaultState())
-  fs.writeFileSync(stateFile(), '"nope"', 'utf8')
-  assert.deepEqual(readState(), defaultState())
-})
-
-test('readState: id 非字符串（数字/对象/空串）→ 归一为 null', () => {
-  fs.writeFileSync(stateFile(), JSON.stringify({ version: 1, conversationWorkspaceId: 42 }), 'utf8')
-  assert.equal(readState().conversationWorkspaceId, null)
-  fs.writeFileSync(stateFile(), JSON.stringify({ conversationWorkspaceId: {} }), 'utf8')
-  assert.equal(readState().conversationWorkspaceId, null)
-  fs.writeFileSync(stateFile(), JSON.stringify({ conversationWorkspaceId: '' }), 'utf8')
-  assert.equal(readState().conversationWorkspaceId, null)
-})
-
-test('writeState → readState 往返一致，且不残留 .tmp', () => {
-  resetFile()
-  writeState({ conversationWorkspaceId: 'ws-1' })
-  assert.equal(readState().conversationWorkspaceId, 'ws-1')
-  assert.equal(fs.existsSync(`${stateFile()}.tmp`), false)
-  // 覆盖写不残留、结果取最后一次
-  writeState({ conversationWorkspaceId: 'ws-2' })
-  assert.equal(readState().conversationWorkspaceId, 'ws-2')
-  assert.equal(fs.existsSync(`${stateFile()}.tmp`), false)
-})
-
-test('writeState: 空 id 归一为 null（写 null 而非 undefined）', () => {
-  writeState({ conversationWorkspaceId: null })
-  const raw = JSON.parse(fs.readFileSync(stateFile(), 'utf8'))
-  assert.equal(raw.version, 1)
-  assert.equal(raw.conversationWorkspaceId, null)
-  assert.ok(Object.prototype.hasOwnProperty.call(raw, 'conversationWorkspaceId'))
-})
-
-test('loadState + rememberConversationWorkspaceId: 缓存与磁盘同步', () => {
-  resetFile()
-  writeState({ conversationWorkspaceId: 'ws-disk' })
-  loadState()
-  assert.equal(conversationWorkspaceId(), 'ws-disk')
-
-  assert.equal(rememberConversationWorkspaceId('ws-new'), true)
-  assert.equal(conversationWorkspaceId(), 'ws-new')
-  assert.equal(readState().conversationWorkspaceId, 'ws-new')
-})
-
-test('rememberConversationWorkspaceId: 落盘失败时缓存回滚且返回 false', () => {
-  loadState()
-  const before = conversationWorkspaceId()
-  // 把 storages 位置占成文件，让 mkdirSync 必然失败。
-  const storages = path.join(tmpHome, 'storages')
-  fs.rmSync(storages, { recursive: true, force: true })
-  fs.writeFileSync(storages, 'not a directory', 'utf8')
-  try {
-    assert.equal(rememberConversationWorkspaceId('ws-cannot-write'), false)
-    assert.equal(conversationWorkspaceId(), before)
-  } finally {
-    fs.rmSync(storages, { force: true })
-  }
-})
-
-test('normSessionId: 去掉 session- 前缀，其它拼写保持原样', () => {
+test('normSessionId: 两种拼写归一到裸 uuid', () => {
   assert.equal(normSessionId('session-abc'), 'abc')
   assert.equal(normSessionId('abc'), 'abc')
   assert.equal(normSessionId(undefined), '')
   assert.equal(normSessionId(null), '')
 })
 
-test('normalizePathForCompare: 真实存在的目录忽略 尾分隔符 / 大小写 / 反斜杠差异', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-wp-path-'))
-  try {
-    const canonical = normalizePathForCompare(dir)
-    assert.notEqual(canonical, '')
-    assert.equal(normalizePathForCompare(`${dir}${path.sep}`), canonical)
-    assert.equal(normalizePathForCompare(dir.toUpperCase()), canonical)
-    assert.equal(normalizePathForCompare(dir.replace(/\\/g, '/')), canonical)
-    assert.equal(canonical.includes('\\'), false)
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true })
-  }
+test('sessionDirName: 剥离路径不安全字符；不可用时为 null', () => {
+  assert.equal(sessionDirName('session-8f0a-4c1b'), '8f0a-4c1b')
+  assert.equal(sessionDirName('a/b\\c:d*e'), 'abcde')
+  assert.equal(sessionDirName(''), null)
+  assert.equal(sessionDirName('///'), null)
+  assert.equal(sessionDirName(undefined), null)
 })
 
-test('normalizePathForCompare: 不存在的路径退回 resolve（不抛）', () => {
-  const missing = path.join(tmpHome, 'no', 'such', 'dir')
-  assert.equal(normalizePathForCompare(missing), normalizePathForCompare(missing))
+test('sessionDirName: 拒绝 . 与 ..（否则 path.join 会跳出根目录）', () => {
+  assert.equal(sessionDirName('.'), null)
+  assert.equal(sessionDirName('..'), null)
+  assert.equal(conversationDirFor('..'), null)
+  // 斜杠被剥掉之后剩下的只是普通目录名，不再是父目录引用
+  assert.equal(sessionDirName('../..'), '....')
+  assert.equal(path.dirname(path.join(conversationRoot(), sessionDirName('../..'))), conversationRoot())
+})
+
+test('conversationDirFor: 会话目录落在根目录之下', () => {
+  assert.equal(conversationDirFor('session-x'), path.join(conversationRoot(), 'x'))
+  assert.equal(conversationDirFor(''), null)
+})
+
+test('ensureConversationRoot: 只建目录，不预放任何文件', () => {
+  const root = ensureConversationRoot()
+  assert.equal(root, conversationRoot())
+  assert.ok(fs.statSync(root).isDirectory())
+  assert.deepEqual(fs.readdirSync(root), [])
+})
+
+test('ensureConversationDir: 建出会话子目录并返回它', () => {
+  const dir = ensureConversationDir('session-abc')
+  assert.equal(dir, conversationDirFor('session-abc'))
+  assert.ok(fs.statSync(dir).isDirectory())
+  assert.equal(ensureConversationDir('session-abc'), dir)
+})
+
+test('ensureConversationDir: 会话 id 不可用时返回 null', () => {
+  assert.equal(ensureConversationDir(''), null)
+})
+
+test('isConversationCwd: 根目录本身算（兼容子目录方案之前的旧会话）', () => {
+  assert.equal(isConversationCwd(conversationRoot()), true)
+})
+
+test('isConversationCwd: 根目录之下算', () => {
+  assert.equal(isConversationCwd(path.join(conversationRoot(), 'abc')), true)
+  assert.equal(isConversationCwd(path.join(conversationRoot(), 'a', 'b')), true)
+})
+
+test('isConversationCwd: 相似前缀不算（default-other 不是 default 的子目录）', () => {
+  assert.equal(isConversationCwd(`${conversationRoot()}-other`), false)
+  assert.equal(isConversationCwd(path.join(tmpHome, 'workspace', 'default2', 'x')), false)
+})
+
+test('isConversationCwd: 根目录之外不算', () => {
+  assert.equal(isConversationCwd(path.join(tmpHome, 'workspace')), false)
+  assert.equal(isConversationCwd(tmpHome), false)
+  assert.equal(isConversationCwd('C:/somewhere/else'), false)
+})
+
+test('isConversationCwd: 空值 / 非字符串不算', () => {
+  assert.equal(isConversationCwd(''), false)
+  assert.equal(isConversationCwd(null), false)
+  assert.equal(isConversationCwd(undefined), false)
+  assert.equal(isConversationCwd(42), false)
+})
+
+test('isConversationCwd: 尾分隔符与大小写不影响判定', () => {
+  assert.equal(isConversationCwd(`${conversationRoot()}${path.sep}`), true)
+  assert.equal(isConversationCwd(path.join(conversationRoot(), 'AbC').toUpperCase()), true)
+})
+
+test('normalizePathForCompare: 统一分隔符、去尾斜杠、小写', () => {
+  const value = normalizePathForCompare(`${tmpHome}${path.sep}`)
+  assert.ok(!value.includes('\\'))
+  assert.ok(!value.endsWith('/'))
+  assert.equal(value, value.toLowerCase())
   assert.equal(normalizePathForCompare(''), '')
 })
