@@ -1,6 +1,6 @@
 {
   "name": "dsh-project-context",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "给 DSH 工作区一个用途维度：侧边栏底部的「临时会话」按钮把新会话开进固定的临时工作区（$DSH_HOME/workspace/default，首次运行自动创建），项目工作区自动注入精简的项目约定、临时会话则注入『非项目、项目约定不适用』的状态块并带会话头徽标（技能目录同款的独立消息块，不拼接系统提示词，无会话级开关）。",
   "type": "module",
   "main": "lib/index.js",
