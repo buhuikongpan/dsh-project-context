@@ -1,7 +1,11 @@
 # dsh-project-context — bundle activation row (profile layer).
-# Loaded as a profile bundle; the row id stays stable so re-adds / profile
-# patches can target it. Do NOT also hand-write an identical insert row into
-# ~/.dsh/profiles/web/cordis.patch.yml — that duplicates the loader entry.
+#
+# 包名/仓库名是历史标识（dsh-project-context），它现在实现的是「工作区用途分层」：
+# 项目工作区注入 <project_context>，临时会话工作区注入 <workspace_purpose>。
+#
+# 这一行是 profile 层的一条激活记录，id 必须保持稳定：重新 add / profile patch
+# 都靠它定位。不要同时在 ~/.dsh/profiles/web/cordis.patch.yml 里手写一条同样的
+# insert 行 —— 会造成重复加载。
 - insert:
     - id: project-context
       name: 'dsh-project-context'

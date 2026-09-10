@@ -1,7 +1,7 @@
 {
   "name": "dsh-project-context",
-  "version": "0.4.2",
-  "description": "把 DSH 工作区文件夹变成项目：新会话自动注入精简的『项目工作区约定』上下文（先读代码 / 空则新建项目、文件放本目录 / 精简读码方法论），关闭时注入降级为普通工作区的状态提示（技能目录同款的独立消息块，不拼接系统提示词），输入框旁提供每会话独立开关（状态存 session log 事件）。",
+  "version": "0.5.0",
+  "description": "给 DSH 工作区一个用途维度：侧边栏底部的「临时会话」按钮把新会话开进固定的临时工作区（$DSH_HOME/workspace/default，首次运行自动创建），项目工作区自动注入精简的项目约定、临时会话则注入『非项目、项目约定不适用』的状态块并带会话头徽标（技能目录同款的独立消息块，不拼接系统提示词，无会话级开关）。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -10,7 +10,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "check": "node --check lib/index.js && node --check lib/client.js && node -e \"new Function(require('fs').readFileSync('lib/client.js','utf8'))\"",
+    "check": "node --check lib/index.js && node --check lib/client.js && node --check lib/state.js && node -e \"new Function(require('fs').readFileSync('lib/client.js','utf8'))\"",
     "test": "node --test"
   },
   "peerDependencies": {
@@ -26,8 +26,9 @@
     "client": {
       "platform": "web",
       "inject": [
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-conversation"
+        "@deepseek-ai/dsh-api-workspace-controller",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-workspace"
       ]
     }
   },
@@ -35,8 +36,10 @@
     "dsh",
     "dsh-plugin",
     "deepseek-harness",
-    "project-context",
-    "workspace"
+    "workspace",
+    "workspace-purpose",
+    "conversation-workspace",
+    "project-context"
   ],
   "license": "MIT"
 }
