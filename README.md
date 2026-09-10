@@ -7,6 +7,7 @@
 DSH 原生只有**工作区**（workspace），没有**临时会话**：每个目录都被当成项目，
 而"随手问一句、试一段一次性代码"这类事没有落脚点。这个插件补上它：
 
+- **侧边栏多一个「临时会话」面板**：列出所有临时会话，点一行就打开——不用去官方的「未分组」里翻；
 - **侧边栏底部多一颗「临时会话」按钮**：点它在 `$DSH_HOME/workspace/default/` 下建一个专属子目录，并以它为 cwd 开一个新会话；
 - **每个临时会话一个目录**：产出文件各写各的，不会堆在一起；
 - **插件不动你的权限配置**：临时会话常被用来清盘、整理文件，把它钉进沙箱会让这些事做不了——告诉模型它在哪个目录就够了；
@@ -65,12 +66,18 @@ Report your understanding and plan before making changes.
 - **幂等**：扫会话历史里 `surface` 可见的那条同来源消息，内容不变不重发；变化时**原位替换**（不是追加）；
 - **无 cwd 的会话**（系统/后台）不注入、不判定。
 
-### 4. 两处 UI
+### 4. 四处 UI
 
 | 位置 | 插槽（kind） | 内容 |
 | --- | --- | --- |
-| 侧边栏底部 | `sidebar.footer.action`（list / root） | 「临时会话」按钮：`POST /__workspace-purpose/new-conversation` 让宿主建好子目录，再 `sessions.create({sessionId, cwd})` + `sessions.open(...)`；**当前已是空白会话时不重复新建** |
+| 侧边栏面板入口 | `sidebar.panellist`（list / root） | 一个「临时会话」入口（图标 + 标签）。契约规定 **list id 直接寻址 `main` 插槽里同 key 的面板**，所以这里的 `id` 与下面的 `key` 是同一个值 |
+| 中间面板 | `main`（keyed / root） | 「临时会话」面板：新建入口 + 当前所有临时会话的列表（按最近活动倒序），点一行打开它并切回对话视图。官方只占用 `conversation` 这个 key，插件用自有的 key，不会遮住官方 UI |
+| 侧边栏底部 | `sidebar.footer.action`（list / root） | 「临时会话」快捷按钮：`POST /__workspace-purpose/new-conversation` 让宿主建好子目录，再 `sessions.create({sessionId, cwd})` + `sessions.open(...)`；**当前已是空白会话时不重复新建** |
 | 会话头 | `conversation.session.header.actions`（list / session） | 不可点的「临时会话」Pill，仅在会话 cwd 落在临时根目录之下时渲染 |
+
+面板里列出哪些会话：cwd 在临时根目录之下的、非 subagent 的、非归档的、非空白占位的会话。
+入口标签走 `label` 的 **thunk 形式**（契约支持 `string | (() => string)`，每次投影重新求值），
+所以切换界面语言时标签跟着变，不需要重新注册。
 
 判定口径：会话 cwd 与宿主给的 root 做**前缀比较**（分隔符统一 + 大小写归一）。
 cwd 是宿主自己生成的路径，字符串前缀足够，不碰 Windows 短名。
@@ -105,16 +112,22 @@ dsh --profile web --dump-config | grep -i project-context   # 只应出现一次
 > - 更早的 `~/.dsh/storages/project-context.json`（每会话开关时代）同样可以删；
 > - 旧会话的 cwd 是根目录本身，判定仍然认（见上一节），但它们历史里已有的
 >   `<workspace_purpose>` 消息不会被改写——插件不删别人的历史。
+>
+> **0.6.1** 只加了侧边栏的「临时会话」面板与它寻址的 main 面板，目录布局、判定口径与
+> 注入行为都没变，直接更新即可。
 
 ---
 
 ## 已知边界
 
-- **临时会话落在侧边栏的「未分组」桶里。** 它们不属于任何工作区，所以按 DSH 的工作区
-  分组规则归入 ungrouped。**这个分组名改不了**：`group.ungrouped` 属于官方
-  `ui-workspace` 命名空间，而 locale 是单占位（重复注册直接抛错），lookup 链也不会
-  让别处的同名字符串生效。要贴进工作区列表只能整包替换官方组件，那会连带失去
-  搜索/分组/重命名/归档/目录选择，版本脆弱，本插件不做。
+- **官方工作区树里的「未分组」桶仍然会列出这些会话，插件移不走它们。** 原因有两层：
+  会话归属由 `attachSession` 的硬校验决定（`cwd` 必须严格等于工作区路径），而临时会话
+  各有自己的 cwd，所以它们不属于任何工作区；那个桶的分组名也改不了（`group.ungrouped`
+  属于官方 `ui-workspace` 命名空间，locale 是单占位，重复注册直接抛错）。
+  插件给出的解法是**自己提供入口**：侧边栏的「临时会话」面板把同一批会话按最近活动列出来，
+  点开即可。所以两处会看到同一批会话——插件能做的到此为止。唯一的隐藏手段是归档
+  （`archived` 是 `sessionVisible` 里唯一的过滤器），那会让会话从**所有**官方界面消失，
+  等于劫持，本插件不做。
 - **每个临时会话的目录会累积**，插件不做自动清理。手工清理就是删
   `$DSH_HOME/workspace/default/` 下的子目录（目录名 = 会话 id 去掉 `session-` 前缀），
   建议先确认对应会话已不再需要。
@@ -146,12 +159,13 @@ npm test        # node --test
 
 人工端到端观察点：
 
-1. 启动后侧边栏底部出现按钮，点它 → 新会话，会话头出现 Pill；
-2. 该会话首轮确认**只有**系统提示词、**没有** `<project_context>`；
-3. 在临时会话里让模型写文件 → 落在 `$DSH_HOME/workspace/default/<会话 id>/`；
-4. 开第二个临时会话 → 目录不同，看不到上一个会话的文件；
-5. 在真实项目工作区开会话 → `<project_context>` 仍在、无 Pill；
-6. 临时会话的权限与你其他会话一致（插件没动过它）。
+1. 启动后侧边栏出现「临时会话」面板入口（图标 + 标签），点开是面板；底部另有一颗快捷新建按钮；
+2. 点按钮新建 → 新会话，会话头出现 Pill，面板里多出一行；
+3. 该会话首轮确认**只有**系统提示词、**没有** `<project_context>`；
+4. 在临时会话里让模型写文件 → 落在 `$DSH_HOME/workspace/default/<会话 id>/`；
+5. 开第二个临时会话 → 目录不同，看不到上一个会话的文件；面板里两行都在，点一行能打开；
+6. 在真实项目工作区开会话 → `<project_context>` 仍在、无 Pill，且**不出现在**面板里；
+7. 临时会话的权限与你其他会话一致（插件没动过它）。
 
 ---
 
@@ -160,7 +174,8 @@ npm test        # node --test
 ```
 lib/index.js     宿主半边：路径判定 / 建会话目录 / pre-step 注入 / 两个端点
 lib/state.js     路径层：根目录、会话目录、前缀判定、规范化
-lib/client.js    浏览器半边：footer 按钮 + 会话头 Pill（classic script，无 JSX）
+lib/client.js    浏览器半边：面板入口 + main 面板 + footer 按钮 + 会话头 Pill
+                 （classic script，无 JSX，纯 createElement）
 cordis.patch.yml profile 层激活行（id 稳定，勿与 profile 里的手写行重复）
 test/            node --test
 ```
