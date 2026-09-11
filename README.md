@@ -80,8 +80,9 @@ Report your understanding and plan before making changes.
 
 - 标题 + 会话计数 + 收起键（✕ / 点遮罩 / `Esc` 都能收起）
 - 搜索框：走 `sessions.search(query, signal)`（宿主内容搜索，250ms debounce + abort），结果再按 cwd 前缀过滤，只留临时会话
-- 按时间分组的列表：今天 / 昨天 / 更早
-- 会话行：运行状态点 + 标题 + 相对时间；hover 显示「重命名 / 归档」，右键出同样的菜单，双击标题就地改名（`sessions.binding(id).session.rename`），归档走 `uiWorkspace.archiveSession`
+- 可折叠的时间分组：今天 / 昨天 / 更早（带旋转的 chevron；行高压 34px，对齐官方的项目行）
+- 会话行（几何值对齐官方 `Rows.module.css`：32px 行高、14/20 标题、12/20 时间、16×16 图标位、状态点占 16×20 槽）：运行状态点 + 标题 + 相对时间；hover 出现「重命名 / 分叉 / 归档」三个图标操作，右键出同样的菜单，双击标题就地改名（`sessions.binding(id).session.rename`），归档走 `uiWorkspace.archiveSession`，分叉走 `uiWorkspace.forkSession`（fork 继承同一个 cwd，所以仍是临时会话）
+- hover 信息卡：跟着指针显示标题、完整 cwd、最后活动时间（`pointer-events: none`，不会把 hover 抢走）
 - 底部「新建临时会话」
 
 列出哪些会话：cwd 在临时根目录之下的、非 subagent 的、非归档的、非空白占位的会话。
@@ -90,8 +91,8 @@ Report your understanding and plan before making changes.
 
 **两条刻意的边界**（不是没做完）：
 
-- **是列表，不是树**：临时会话之间没有层级关系（每个会话是一个独立目录当 cwd），所以浮层是"平铺列表 + 时间分组"，不是"工作区 › 会话"的两级树。
-- **拖拽排序做不了**：官方用 `workspaces.insertSessionBefore(workspaceId, …)`，而临时会话不属于任何工作区，没有 workspaceId 可传。
+- **是列表，不是树**：临时会话之间没有层级关系（每个会话是一个独立目录当 cwd），所以浮层用"可折叠的时间分组（今天/昨天/更早）"替代官方的"按工作区分组"。
+- **拖拽排序与工作区级操作做不了**：官方用 `workspaces.insertSessionBefore(workspaceId, …)`，而临时会话不属于任何工作区，没有 workspaceId 可传；重命名/删除/添加工作区同理，没有工作区可操作。
 
 判定口径：会话 cwd 与宿主给的 root 做**前缀比较**（分隔符统一 + 大小写归一）。
 cwd 是宿主自己生成的路径，字符串前缀足够，不碰 Windows 短名。
@@ -128,7 +129,8 @@ dsh --profile web --dump-config | grep -i project-context   # 只应出现一次
 >   `<workspace_purpose>` 消息不会被改写——插件不删别人的历史。
 >
 > **0.6.1** 加了侧边栏的「临时会话」面板；**0.7.0** 把它改成盖在官方工作区树**上方**的浮层
-> （用官方预留的 `shell.overlay` 座位，不遮蔽官方 UI），并补上搜索、时间分组、重命名、归档。
+> （用官方预留的 `shell.overlay` 座位，不遮蔽官方 UI），并补上搜索、时间分组、重命名、归档；
+> **0.8.0** 把浮层里每一行的几何值对齐官方 `Rows.module.css`，并补上折叠分组、hover 信息卡与分叉。
 > 目录布局、判定口径与注入行为全程未变，直接更新即可。
 
 ---
