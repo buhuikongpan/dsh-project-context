@@ -7,7 +7,7 @@ DSH 原生只有**工作区**（workspace），没有**用途**：每个目录�
 可真实使用里并不都是项目——有时只想临时问点东西、试一段一次性代码、让 agent 干点跟任何仓库
 都无关的事。这些东西现在有了落脚点：
 
-- **侧边栏底部多一颗「临时会话」按钮**：点击在固定的临时工作区里开一个新会话；
+- **侧边栏「新会话」下面多一颗「临时会话」按钮**：点它在固定的临时工作区里开一个新会话；
 - **那一个固定目录就是唯一的临时会话沙箱**：`$DSH_HOME/workspace/default`，**首次运行自动创建**（空目录）；
 - **会话头出现「临时会话」徽标**：一眼看出当前会话在哪个环境里；
 - **只有项目工作区会拿到提示词**：临时会话什么都不注入——它落在自己的工作区目录里，这件事由目录本身表达。
@@ -67,7 +67,7 @@ Report your understanding and plan before making changes.
 
 | 位置 | 插槽（kind） | 内容 |
 | --- | --- | --- |
-| 侧边栏底部 | `sidebar.footer.action`（list / root） | 「临时会话」按钮：点它 = `uiWorkspace.startSession(临时工作区)`；**当前已是空白会话时不重复新建** |
+| 侧边栏「新会话」下面 | `sidebar.panellist`（list / root） | 「临时会话」按钮：点它 = `uiWorkspace.startSession(临时工作区)`；**当前已是空白会话时不重复新建**。entry 里用 `stopPropagation` 把点击从外壳的 `selectPanel` 劫持过来（见「已知边界」） |
 | 会话头 | `conversation.session.header.actions`（list / session） | 不可点的「临时会话」Pill，仅在当前会话属于临时工作区时渲染 |
 
 判定口径：**反查 `workspaces` 快照里 `sessionIds.includes(sessionId)`，再比 workspaceId**——
@@ -100,7 +100,7 @@ dsh --profile web --dump-config | grep -i project-context   # 只应出现一次
 > 只是从这一版起不再被当作开关依据。
 
 > **0.9.0 是一次回退**：0.6–0.8 试过"每个临时会话一个子目录 + 侧边栏浮层"，现在回到
-> **一个共享的临时工作区 + 侧边栏底部按钮**那一套——会话因此显示在官方工作区树里那个
+> **一个共享的临时工作区 + 侧边栏按钮**那一套——会话因此显示在官方工作区树里那个
 > 「临时会话」文件夹下面（浮层做不到这一点，因为"往侧边栏里塞第二棵树"不是插件能做的事）。
 >
 > 两处刻意保留：判定继续用**路径前缀匹配**（等于临时目录**或在其之下**都算临时会话），
@@ -114,10 +114,14 @@ dsh --profile web --dump-config | grep -i project-context   # 只应出现一次
 
 ## 已知边界（由 DSH 0.1.5-rc.1 的插槽体系决定，非本插件的取舍）
 
-- **按钮只能在侧边栏底部，进不了工作区列表。** 官方 `sidebar.workspaces` 是 `single` 槽且被
-  `WorkspaceBrowser` 占用；`WorkspaceBrowser` 全文件只有一处 `renderSlot`（给 `directoryFlow`），
-  行/分区级插槽**不存在**（已强制枚举验证）。要贴进工作区列表只能整包替换官方组件——那会连带
-  失去搜索/分组/重命名/归档/目录选择，版本脆弱，本插件不做。
+- **按钮能放进「新会话」下面那一排，代价是这个槽的语义挪用。** 那一排是 `sidebar.panellist`
+  （`list` / root，官方契约写的是 "Global panel icons"），位置正好在官方「新会话」按钮正下方，
+  每项由外壳渲染成一个按钮（图标 + 宽模式下的标签）。两条约束：entry 的渲染结果被塞进一个固定
+  尺寸的图标位，且**外层是官方自己的 button，它的 onClick 是 `selectPanel(id)`**。所以插件画一个
+  图标，再铺一层覆盖点击区的透明层并 `stopPropagation`，把点击改成"开新会话"；同时注册一个渲染
+  `null` 的 `main` 占位——`selectPanel` 会校验 `hasMainPanel(id)`，不注册会抛错。
+- **进不了工作区列表（`sidebar.workspaces`）。** 那是 `single` 槽且被 `WorkspaceBrowser` 占用，
+  要贴进去只能整包替换官方组件——那会连带失去搜索/分组/重命名/归档/目录选择，版本脆弱，本插件不做。
 - **临时工作区会像普通工作区一样出现在列表里**，并因「新建工作区置顶」而排在最前。我们不做排序干预
   （会和用户手动拖拽打架）；靠标题「临时会话」区分。
 - **`$DSH_HOME/AGENTS.md` 仍会注入临时会话**：它是 DSH 明确识别的**用户级全局指令**
@@ -143,7 +147,7 @@ npm test        # node --test：38 个用例
 
 人工端到端观察点：
 
-1. 启动后 `$DSH_HOME/workspace/default` 被创建、侧边栏底部出现按钮；
+1. 启动后 `$DSH_HOME/workspace/default` 被**自动创建**并在工作区注册表里登记为「临时会话」；侧边栏官方「新会话」按钮**下面**出现「临时会话」按钮；
 2. 点按钮 → 新会话，会话头出现 Pill，**侧边栏那个「临时会话」文件夹下面多出一行**；首轮确认模型**看不到** `<project_context>`（临时会话什么都不注入）；
 3. 打开一个真实项目工作区 → `<project_context>` 仍在、无 Pill；
 4. 再次重启 → 判定不变，会话恢复正常（无 `SessionFormatUnsupportedError`）。
@@ -155,7 +159,8 @@ npm test        # node --test：38 个用例
 ```
 lib/index.js     宿主半边：ensure 临时工作区 / 用途判定 / pre-step 注入 / 只读端点
 lib/state.js     状态层：状态文件读写（纯函数 + 可注入 DSH_HOME）、路径规范化
-lib/client.js    浏览器半边：footer 按钮 + 会话头 Pill（classic script，无 JSX，纯 createElement）
+lib/client.js    浏览器半边：panellist 入口（图标 + 点击劫持）+ 会话头 Pill
+                 （classic script，无 JSX，纯 createElement）
 cordis.patch.yml profile 层激活行（id 稳定，勿与 profile 里的手写行重复）
 test/            node --test
 ```
