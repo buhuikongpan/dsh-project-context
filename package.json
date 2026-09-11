@@ -1,7 +1,7 @@
 {
   "name": "dsh-project-context",
-  "version": "0.8.0",
-  "description": "给 DSH 一个「临时会话」：点侧边栏的「临时会话」图标，在官方工作区树上方展开一个浮层（用官方为浮层预留的 shell.overlay 座位，不遮蔽、不替换官方 UI），里面可新建/搜索/重命名/分叉/归档临时会话，行几何对齐官方 Rows.module.css，支持可折叠的时间分组与 hover 信息卡；每个临时会话有自己的目录（cwd = $DSH_HOME/workspace/default/<会话 id>），产出文件各写各的，判定是纯路径前缀匹配（无状态文件、不查注册表），项目会话照旧注入精简的项目约定，临时会话不注入任何提示词，插件也不改你的权限配置。",
+  "version": "0.9.0",
+  "description": "给 DSH 一个「临时会话」：侧边栏底部的按钮把新会话开进固定的临时工作区（$DSH_HOME/workspace/default，首次运行自动创建），于是这些会话就显示在侧边栏那个「临时会话」文件夹下面；项目工作区照旧注入精简的项目约定，临时会话不注入任何提示词，插件也不改你的权限配置。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -26,11 +26,8 @@
     "client": {
       "platform": "web",
       "inject": [
-        "@deepseek-ai/dsh-api-session-controller",
         "@deepseek-ai/dsh-api-workspace-controller",
         "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-client-ui-layout",
-        "@deepseek-ai/dsh-client-ui-sidebar",
         "@deepseek-ai/dsh-client-ui-workspace"
       ]
     }

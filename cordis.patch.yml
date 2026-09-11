@@ -1,8 +1,7 @@
 # dsh-project-context — bundle activation row (profile layer).
 #
-# 包名/仓库名是历史标识（dsh-project-context），它现在实现的是「临时会话」：
-# 每个临时会话在自己的子目录里工作并被钉在 workspace-write（可写边界 = 它自己的
-# cwd），项目工作区照旧注入 <project_context>，临时会话不注入任何提示词。
+# 包名/仓库名是历史标识（dsh-project-context），它现在实现的是「工作区用途分层」：
+# 项目工作区注入 <project_context>，临时会话工作区注入 <workspace_purpose>。
 #
 # 这一行是 profile 层的一条激活记录，id 必须保持稳定：重新 add / profile patch
 # 都靠它定位。不要同时在 ~/.dsh/profiles/web/cordis.patch.yml 里手写一条同样的
